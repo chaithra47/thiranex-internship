@@ -1,132 +1,51 @@
-let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+async function getWeather() {
+    const city = document.getElementById("city").value.trim();
 
-let currentFilter = "all";
+    const cityName = document.getElementById("cityName");
+    const temperature = document.getElementById("temperature");
+    const humidity = document.getElementById("humidity");
+    const wind = document.getElementById("wind");
+    const description = document.getElementById("description");
+    const error = document.getElementById("error");
 
-const taskInput = document.getElementById("taskInput");
-const addBtn = document.getElementById("addBtn");
-const taskList = document.getElementById("taskList");
+    cityName.textContent = "";
+    temperature.textContent = "";
+    humidity.textContent = "";
+    wind.textContent = "";
+    description.textContent = "";
+    error.textContent = "";
 
-function saveTasks() {
-    localStorage.setItem("tasks", JSON.stringify(tasks));
+    if (city === "") {
+        error.textContent = "Please enter a city name.";
+        return;
+    }
+
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${city}&count=1`;
+
+    try {
+        const geoResponse = await fetch(url);
+        const geoData = await geoResponse.json();
+
+        if (!geoData.results || geoData.results.length === 0) {
+            throw new Error("City not found!");
+        }
+
+        const latitude = geoData.results[0].latitude;
+        const longitude = geoData.results[0].longitude;
+        const cityDisplay = geoData.results[0].name;
+
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m`;
+
+        const weatherResponse = await fetch(weatherUrl);
+        const weatherData = await weatherResponse.json();
+
+        cityName.textContent = cityDisplay;
+        temperature.textContent = `🌡 Temperature: ${weatherData.current.temperature_2m} °C`;
+        humidity.textContent = `💧 Humidity: ${weatherData.current.relative_humidity_2m}%`;
+        wind.textContent = `💨 Wind Speed: ${weatherData.current.wind_speed_10m} km/h`;
+        description.textContent = "🌤 Live Weather Data";
+
+    } catch (err) {
+        error.textContent = err.message;
+    }
 }
-
-function renderTasks() {
-
-    taskList.innerHTML = "";
-
-    let filtered = tasks.filter(task => {
-
-        if(currentFilter === "active")
-            return !task.completed;
-
-        if(currentFilter === "completed")
-            return task.completed;
-
-        return true;
-
-    });
-
-    filtered.forEach((task,index)=>{
-
-        let li=document.createElement("li");
-
-        if(task.completed)
-            li.classList.add("completed");
-
-        li.innerHTML=`
-        <span>${task.text}</span>
-
-        <div class="actions">
-
-        <button class="complete">${task.completed?"Undo":"Done"}</button>
-
-        <button class="edit">Edit</button>
-
-        <button class="delete">Delete</button>
-
-        </div>
-        `;
-
-        li.querySelector(".complete").addEventListener("click",()=>{
-
-            let realIndex=tasks.indexOf(task);
-
-            tasks[realIndex].completed=!tasks[realIndex].completed;
-
-            saveTasks();
-
-            renderTasks();
-
-        });
-
-        li.querySelector(".edit").addEventListener("click",()=>{
-
-            let newTask=prompt("Edit Task",task.text);
-
-            if(newTask!==null && newTask.trim()!==""){
-
-                let realIndex=tasks.indexOf(task);
-
-                tasks[realIndex].text=newTask;
-
-                saveTasks();
-
-                renderTasks();
-
-            }
-
-        });
-
-        li.querySelector(".delete").addEventListener("click",()=>{
-
-            let realIndex=tasks.indexOf(task);
-
-            tasks.splice(realIndex,1);
-
-            saveTasks();
-
-            renderTasks();
-
-        });
-
-        taskList.appendChild(li);
-
-    });
-
-}
-
-addBtn.addEventListener("click",()=>{
-
-    let text=taskInput.value.trim();
-
-    if(text==="") return;
-
-    tasks.push({
-
-        text:text,
-
-        completed:false
-
-    });
-
-    taskInput.value="";
-
-    saveTasks();
-
-    renderTasks();
-
-});
-
-document.querySelectorAll(".filters button").forEach(button=>{
-
-    button.addEventListener("click",()=>{
-
-        currentFilter=button.dataset.filter;
-
-        renderTasks();
-
-    });
-
-});
-
-renderTasks();
